@@ -23,7 +23,6 @@ mod cli_reader;
 
 use crate::error_defs::{AppError, CustomError};
 //use crate::error_defs::AppError;
-use chrono::NaiveDate;
 use sqlx::postgres::{PgPoolOptions, PgConnectOptions, PgPool};
 use log::error;
 use std::path::PathBuf;
@@ -35,22 +34,15 @@ use config_reader::Config;
 
 #[derive(Debug)]
 pub struct CliPars {
-    pub data_folder: PathBuf,
     pub source_file: PathBuf,
-    pub data_version: String,
-    pub data_date: String,
     pub flags: Flags, 
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Flags {
-    pub import_ror: bool,
-    pub process_data: bool,
-    pub export_text: bool,
-    pub export_csv: bool,
-    pub export_full_csv: bool,
-    pub create_lookups: bool,
-    pub create_summary: bool,
+    pub import_data: bool,
+    pub export_data: bool,
+    pub initialise: bool,
     pub test_run: bool,
 }
 
@@ -59,9 +51,6 @@ pub struct InitParams {
     pub log_folder: PathBuf,
     pub output_folder: PathBuf,
     pub source_file_name: PathBuf,
-    pub output_file_name: PathBuf,
-    pub data_version: String,
-    pub data_date: String,
     pub flags: Flags,
 }
 
@@ -73,7 +62,7 @@ pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
       
     let cli_pars = cli_reader::fetch_valid_arguments(args)?;
 
-    if cli_pars.flags.create_lookups || cli_pars.flags.create_summary {
+    if cli_pars.flags.initialise {
 
        // Any ror data and any other flags or arguments are ignored.
 
@@ -82,9 +71,6 @@ pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
             log_folder: PathBuf::new(),
             output_folder: PathBuf::new(),
             source_file_name: PathBuf::new(),
-            output_file_name: PathBuf::new(),
-            data_version: "".to_string(),
-            data_date: "".to_string(),
             flags: cli_pars.flags,
         })
     }
@@ -93,27 +79,20 @@ pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
         // Normal import and / or processing and / or outputting
         // If folder name also given in CL args the CL version takes precedence
 
-        let source_file_path = "./config_r_umls.toml".to_string();
+        let source_file_path = "./config_alt_names.toml".to_string();
         let config_file: Config = config_reader::populate_config_vars(&source_file_path)?; 
         let file_pars = config_file.files;  // guaranteed to exist
 
         let empty_pb = PathBuf::from("");
         let mut data_folder_good = true;
 
-        let mut data_folder = cli_pars.data_folder;
-        if data_folder == empty_pb {
-            data_folder =  file_pars.data_folder_path;
-        }
-
-        // Does this folder exist and is it accessible? - If not and the 
-        // 'R' (import ror) option is active, raise error and exit program.
-
+        let data_folder =  file_pars.data_folder_path;
         if !folder_exists (&data_folder) 
         {   
             data_folder_good = false;
         }
 
-        if !data_folder_good && cli_pars.flags.import_ror { 
+        if !data_folder_good && cli_pars.flags.import_data { 
 
             let msg = "Required data folder does not exists or is not accessible";
             let cf_err = CustomError::new(msg);
@@ -145,71 +124,10 @@ pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
         let mut source_file_name= cli_pars.source_file;
         if source_file_name == empty_pb {
             source_file_name =  file_pars.src_file_name;
-            if source_file_name == empty_pb && cli_pars.flags.import_ror {   // Required data is missing - Raise error and exit program.
+            if source_file_name == empty_pb && cli_pars.flags.import_data {   // Required data is missing - Raise error and exit program.
                  let msg = "Source file name not provided in either command line or environment file";
                  let cf_err = CustomError::new(msg);
                  return Result::Err(AppError::CsErr(cf_err));
-            }
-        }
-         
-        // get the output file name - from the config variables (may be a default)
-                
-        let output_file_name =  file_pars.output_file_name;
-                     
-        let mut data_version = "".to_string();
-        let mut data_date = "".to_string();
-
-        // If file name conforms to the correct pattern data version and data date can be derived.
-        /* 
-        if cli_pars.flags.test_run {
-            data_version = "v99".to_string();
-            data_date = "2030-01-01".to_string()
-        }
-        else {
-            match source_file_name.to_str() {
-                Some(s_file) => {
-                    if is_compliant_file_name(s_file) {
-                        data_version = get_data_version(s_file);
-                        data_date = get_data_date(s_file);
-                 }
-                },
-                None => {},
-            }
-        }
-        */
-        
-        if data_version == "".to_string() ||  data_date == "".to_string()     
-        {
-            // Parsing of file name has not been completely successful, so get the version and date 
-            // of the data from the CLI, or failing that the config file.
-
-            data_version= cli_pars.data_version;
-            if data_version == "" {
-                data_version =  config_file.data_details.data_version;
-                if data_version == "" && cli_pars.flags.import_ror {   // Required data is missing - Raise error and exit program.
-                    let msg = "Data version not provided in either command line or environment file";
-                    let cf_err = CustomError::new(msg);
-                    return Result::Err(AppError::CsErr(cf_err));
-                }
-            }
-        
-            data_date = match NaiveDate::parse_from_str(&cli_pars.data_date, "%Y-%m-%d") {
-                Ok(_) => cli_pars.data_date,
-                Err(_) => "".to_string(),
-            };
-
-            if data_date == "" {  
-                    let env_date = &config_file.data_details.data_date;
-                    data_date = match NaiveDate::parse_from_str(env_date, "%Y-%m-%d") {
-                    Ok(_) => env_date.to_string(),
-                    Err(_) => "".to_string(),
-                };
-
-                if data_date == "" && cli_pars.flags.import_ror {   // Raise an AppError...required data is missing.
-                    let msg = "Data date not provided";
-                    let cf_err = CustomError::new(msg);
-                    return Result::Err(AppError::CsErr(cf_err));
-                }
             }
         }
 
@@ -220,9 +138,6 @@ pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
             log_folder,
             output_folder,
             source_file_name,
-            output_file_name,
-            data_version,
-            data_date,
             flags: cli_pars.flags,
         })
 
@@ -271,46 +186,6 @@ pub async fn get_db_pool() -> Result<PgPool, AppError> {
         },
     }
 }
-
-/* 
-fn is_compliant_file_name(input: &str) -> bool {
-    let file_name_pattern = r#"^v[0-9]+(\.[0-9]+){0,2}(-| )20[0-9]{2}-?[01][0-9]-?[0-3][0-9]"#;
-    let re = Regex::new(file_name_pattern).unwrap();
-    re.is_match(input)
-}
-
-fn get_data_version(input: &str) -> String {
-
-    let version_pattern = r#"^v[0-9]+(\.[0-9]+){0,2}"#;
-    let re = Regex::new(version_pattern).unwrap();
-    if re.is_match(&input) {
-        let caps = re.captures(&input).unwrap();
-        caps[0].trim().to_string()
-    }
-    else {
-        "".to_string()
-    }
-}
-
-fn get_data_date(input: &str) -> String {            
-    
-    let date_pattern = r#"20[0-9]{2}-?[01][0-9]-?[0-3][0-9]"#;
-    let re = Regex::new(date_pattern).unwrap();
-    if re.is_match(&input) {
-        let caps = re.captures(&input).unwrap();
-        let putative_date = caps[0].replace("-", ""); // remove any hyphens
-        match NaiveDate::parse_from_str(&putative_date, "%Y%m%d")
-        {
-            Ok(nd) => nd.to_string(),  // returns as YYY-mm-DD
-            Err(_) => "".to_string(),
-        }
-    } 
-    else {
-        "".to_string()
-    }
-}
-*/
-
 
 
 /* 
