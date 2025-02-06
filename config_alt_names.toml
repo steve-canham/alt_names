@@ -1,18 +1,11 @@
 
-# Configuration file for the r_umls tool
-# Normally located in the installation folder 
-# i.e. above the bin folder with the .exe
-
-[data]
-data_version=""
-data_date=""
-
+# Configuration file for the alt_names experiment
 
 [files]
-data_folder_path="E:\\MDR source data\\UMLS\\data"
-log_folder_path="E:\\MDR source data\\UMLS\\logs"
-output_folder_path="E:\\MDR source data\\UMLS\\outputs"
-src_file_name="v1.59-2025-01-23-ror-data_schema_v2.json"
+data_folder_path="E:\\MDR source data\\Geonames\\data"
+log_folder_path="E:\\MDR source data\\Geonames\\logs"
+output_folder_path="E:\\MDR source data\\Geonames\\outputs"
+src_file_name="alternateNamesV2.txt"
 
 
 [database]
