@@ -8,10 +8,21 @@
 
 use clap::{command, Arg, ArgMatches};
 use crate::error_defs::AppError;
-use crate::setup::{CliPars, Flags};
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+pub struct CliPars {
+    pub source_file: PathBuf,
+    pub flags: Flags, 
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Flags {
+    pub import_data: bool,
+    pub export_data: bool,
+    pub initialise: bool,
+    pub test_run: bool,
+}
 
 pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
 { 

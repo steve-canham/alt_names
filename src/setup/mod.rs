@@ -31,20 +31,7 @@ use std::fs;
 use std::time::Duration;
 use sqlx::ConnectOptions;
 use config_reader::Config;
-
-#[derive(Debug)]
-pub struct CliPars {
-    pub source_file: PathBuf,
-    pub flags: Flags, 
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Flags {
-    pub import_data: bool,
-    pub export_data: bool,
-    pub initialise: bool,
-    pub test_run: bool,
-}
+use cli_reader::Flags;
 
 pub struct InitParams {
     pub data_folder: PathBuf,
@@ -54,7 +41,7 @@ pub struct InitParams {
     pub flags: Flags,
 }
 
-pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
+pub async fn get_params(args: Vec<OsString>, config_string: String) -> Result<InitParams, AppError> {
 
     // Called from main as the initial task of the program.
     // Returns a struct that contains the program's parameters.
@@ -78,9 +65,6 @@ pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
 
         // Normal import and / or processing and / or outputting
         // If folder name also given in CL args the CL version takes precedence
-
-        let config_file_path = "./config_alt_names.toml".to_string();
-        let config_string: String = fs::read_to_string(config_file_path)?;
         
         let config_file: Config = config_reader::populate_config_vars(&config_string)?; 
         let file_pars = config_file.files;  // guaranteed to exist
