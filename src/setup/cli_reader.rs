@@ -7,7 +7,7 @@
  ***************************************************************************/
 
 use clap::{command, Arg, ArgMatches};
-use crate::error_defs::AppError;
+use crate::err::AppError;
 use std::ffi::OsString;
 use std::path::PathBuf;
 
@@ -35,7 +35,6 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
 
     // Flag values are false if not present, true if present.
 
-
     let i_flag = parse_result.get_flag("i_flag");
     let mut r_flag = parse_result.get_flag("r_flag");
     let mut x_flag = parse_result.get_flag("x_flag");
@@ -60,14 +59,14 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
     }
     
     else {
-        if r_flag && x_flag {   // only r can be true if both are set
-           x_flag = false;
+        if r_flag && x_flag {  
+           x_flag = false;  // import is the default
         }
 
-        if r_flag == false && x_flag == false {
-                r_flag = true;    // r is true if both are false
-            }
-
+        if !r_flag && !x_flag {
+            r_flag = true;  // import is the default
+        }
+    
         let flags = Flags {
             import_data: r_flag,
             export_data: x_flag,
@@ -194,9 +193,9 @@ mod tests {
     }
 
     #[test]
-    fn check_cli_with_r_and_z_flags() {
+    fn check_cli_with_z_flags() {
         let target = "dummy target";
-        let args : Vec<&str> = vec![target, "-r", "-z"];
+        let args : Vec<&str> = vec![target, "-z"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
         let res = fetch_valid_arguments(test_args).unwrap();
