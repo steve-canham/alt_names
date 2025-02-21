@@ -8,8 +8,6 @@ use toml;
 use serde::Deserialize;
 use std::path::PathBuf;
 
-pub static DB_PARS: OnceLock<DBPars> = OnceLock::new();
-
 #[derive(Debug, Deserialize)]
 pub struct TomlConfig {
     pub files: Option<TomlFilePars>, 
@@ -42,7 +40,7 @@ pub struct FilePars {
     pub data_folder_path: PathBuf,
     pub log_folder_path: PathBuf,
     pub output_folder_path: PathBuf,
-    pub src_file_name: PathBuf,
+    pub src_file_name: String,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +51,8 @@ pub struct DBPars {
     pub db_port: usize,
     pub db_name: String,
 }
+
+pub static DB_PARS: OnceLock<DBPars> = OnceLock::new();
 
 pub fn populate_config_vars(config_string: &String) -> Result<Config, AppError> {
     
@@ -91,7 +91,7 @@ fn verify_file_parameters(toml_files: TomlFilePars) -> Result<FilePars, AppError
 
     let data_folder_string = check_essential_string (toml_files.data_folder_path, "data path folder", "data_folder_path")?;
 
-    let src_file_string = check_essential_string (toml_files.src_file_name, "source file name", "src_file_name")?;
+    let src_file_name = check_essential_string (toml_files.src_file_name, "source file name", "src_file_name")?;
 
     let log_folder_string = check_defaulted_string (toml_files.log_folder_path, "log folder", "data_folder_path", &data_folder_string);
 
@@ -101,7 +101,7 @@ fn verify_file_parameters(toml_files: TomlFilePars) -> Result<FilePars, AppError
         data_folder_path: PathBuf::from(data_folder_string),
         log_folder_path: PathBuf::from(log_folder_string),
         output_folder_path: PathBuf::from(output_folder_string),
-        src_file_name: PathBuf::from(src_file_string),
+        src_file_name: src_file_name,
     })
 }
 
@@ -223,7 +223,7 @@ db_name="geo"
         assert_eq!(res.files.data_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.files.log_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\logs"));
         assert_eq!(res.files.output_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\outputs"));
-        assert_eq!(res.files.src_file_name, PathBuf::from("alternateNamesV2.txt"));
+        assert_eq!(res.files.src_file_name, "alternateNamesV2.txt");
         assert_eq!(res.db_pars.db_host, "localhost");
         assert_eq!(res.db_pars.db_user, "user_name");
         assert_eq!(res.db_pars.db_password, "password");
@@ -253,7 +253,7 @@ db_name="geo"
         assert_eq!(res.files.data_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.files.log_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.files.output_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
-        assert_eq!(res.files.src_file_name, PathBuf::from("alternateNamesV2.txt"));
+        assert_eq!(res.files.src_file_name, "alternateNamesV2.txt");
     }
 
 
@@ -279,7 +279,7 @@ db_name="geo"
         assert_eq!(res.files.data_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.files.log_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.files.output_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
-        assert_eq!(res.files.src_file_name, PathBuf::from("alternateNamesV2.txt"));
+        assert_eq!(res.files.src_file_name, "alternateNamesV2.txt");
     }
 
 
@@ -305,7 +305,7 @@ db_name="geo"
         assert_eq!(res.files.data_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.files.log_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\logs"));
         assert_eq!(res.files.output_folder_path, PathBuf::from("E:\\MDR source data\\Geonames\\outputs"));
-        assert_eq!(res.files.src_file_name, PathBuf::from("alternateNamesV2.txt"));
+        assert_eq!(res.files.src_file_name, "alternateNamesV2.txt");
 
         assert_eq!(res.db_pars.db_host, "localhost");
         assert_eq!(res.db_pars.db_user, "user_name");

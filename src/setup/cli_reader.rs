@@ -9,10 +9,9 @@
 use clap::{command, Arg, ArgMatches};
 use crate::err::AppError;
 use std::ffi::OsString;
-use std::path::PathBuf;
 
 pub struct CliPars {
-    pub source_file: PathBuf,
+    pub source_file: String,
     pub flags: Flags, 
 }
 
@@ -27,12 +26,8 @@ pub struct Flags {
 pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
 { 
     let parse_result = parse_args(args)?;
-
-    // These parameters guaranteed to unwrap OK as all have a default value of "".
-
-    let source_file_as_string = parse_result.get_one::<String>("src_file").unwrap();
-    let source_file = PathBuf::from(source_file_as_string);
-
+    let source_file = parse_result.get_one::<String>("src_file").unwrap();
+  
     // Flag values are false if not present, true if present.
 
     let i_flag = parse_result.get_flag("i_flag");
@@ -53,7 +48,7 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
         };
 
         Ok(CliPars {
-            source_file: PathBuf::new(),
+            source_file: "".to_string(),
             flags: flags,
         })
     }
@@ -143,7 +138,7 @@ mod tests {
         let args : Vec<&str> = vec![target];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let res = fetch_valid_arguments(test_args).unwrap();
-        assert_eq!(res.source_file, PathBuf::new());
+        assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.initialise, false);
@@ -157,7 +152,7 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
         let res = fetch_valid_arguments(test_args).unwrap();
-        assert_eq!(res.source_file, PathBuf::new());
+        assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, false);
         assert_eq!(res.flags.export_data, true);
         assert_eq!(res.flags.initialise, false);
@@ -171,7 +166,7 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
         let res = fetch_valid_arguments(test_args).unwrap();
-        assert_eq!(res.source_file, PathBuf::new());
+        assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.initialise, false);
@@ -185,7 +180,7 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
         let res = fetch_valid_arguments(test_args).unwrap();
-        assert_eq!(res.source_file, PathBuf::new());
+        assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, false);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.initialise, true);
@@ -199,7 +194,7 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
         let res = fetch_valid_arguments(test_args).unwrap();
-        assert_eq!(res.source_file, PathBuf::new());
+        assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.initialise, false);
@@ -214,7 +209,7 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
         let res = fetch_valid_arguments(test_args).unwrap();
-        assert_eq!(res.source_file, PathBuf::from("schema2 data.json"));
+        assert_eq!(res.source_file, "schema2 data.json");
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.initialise, false);
@@ -228,7 +223,7 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
         let res = fetch_valid_arguments(test_args).unwrap();
-        assert_eq!(res.source_file, PathBuf::from("schema2.1 data.json"));
+        assert_eq!(res.source_file, "schema2.1 data.json");
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.initialise, false);

@@ -8,7 +8,7 @@
 
 pub mod config_reader;
 pub mod log_helper;
-mod cli_reader;
+pub mod cli_reader;
 
 /**********************************************************************************
 * This over-arching 'mod' setup module 
@@ -22,106 +22,89 @@ mod cli_reader;
 ***********************************************************************************/
 
 use crate::err::AppError;
-//use crate::error_defs::AppError;
 use sqlx::postgres::{PgPoolOptions, PgConnectOptions, PgPool};
 use std::path::PathBuf;
-use std::ffi::OsString;
+use cli_reader::{CliPars, Flags};
 use std::fs;
 use std::time::Duration;
 use sqlx::ConnectOptions;
 use config_reader::Config;
-use cli_reader::Flags;
+use std::sync::OnceLock;
 
 pub struct InitParams {
     pub data_folder: PathBuf,
     pub log_folder: PathBuf,
     pub output_folder: PathBuf,
-    pub source_file_name: PathBuf,
+    pub source_file_name: String,
     pub flags: Flags,
 }
 
-pub fn get_params(args: Vec<OsString>, config_string: String) -> Result<InitParams, AppError> {
+pub static LOG_RUNNING: OnceLock<bool> = OnceLock::new();
 
-    // Called from main as the initial task of the program.
+pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParams, AppError> {
+
+    // Called from lib::run as the initial task of the program.
     // Returns a struct that contains the program's parameters.
-    // Start by obtaining CLI arguments and reading parameters from .env file.
       
-    let cli_pars = cli_reader::fetch_valid_arguments(args)?;
+    // Normal import and / or processing and / or outputting
+    // If folder name also given in CL args the CL version takes precedence
+    
+    let config_file: Config = config_reader::populate_config_vars(&config_string)?; 
+    let file_pars = config_file.files;  // guaranteed to exist
 
-    if cli_pars.flags.initialise {
+    let empty_pb = PathBuf::from("");
+    let mut data_folder_good = true;
 
-       // Any ror data and any other flags or arguments are ignored.
+    let data_folder =  file_pars.data_folder_path;
+    if !folder_exists (&data_folder) 
+    {   
+        data_folder_good = false;
+    }
 
-        Ok(InitParams {
-            data_folder: PathBuf::new(),
-            log_folder: PathBuf::new(),
-            output_folder: PathBuf::new(),
-            source_file_name: PathBuf::new(),
-            flags: cli_pars.flags,
-        })
+    if !data_folder_good && cli_pars.flags.import_data { 
+        return Result::Err(AppError::MissingProgramParameter("data_folder".to_string()));
+    }
+
+    let mut log_folder = file_pars.log_folder_path;
+    if log_folder == empty_pb && data_folder_good {
+        log_folder = data_folder.clone();
     }
     else {
-
-        // Normal import and / or processing and / or outputting
-        // If folder name also given in CL args the CL version takes precedence
-        
-        let config_file: Config = config_reader::populate_config_vars(&config_string)?; 
-        let file_pars = config_file.files;  // guaranteed to exist
-
-        let empty_pb = PathBuf::from("");
-        let mut data_folder_good = true;
-
-        let data_folder =  file_pars.data_folder_path;
-        if !folder_exists (&data_folder) 
-        {   
-            data_folder_good = false;
+        if !folder_exists (&log_folder) { 
+            fs::create_dir_all(&log_folder)?;
         }
-
-        if !data_folder_good && cli_pars.flags.import_data { 
-            return Result::Err(AppError::MissingProgramParameter("data_folder".to_string()));
-        }
-
-        let mut log_folder = file_pars.log_folder_path;
-        if log_folder == empty_pb && data_folder_good {
-            log_folder = data_folder.clone();
-        }
-        else {
-            if !folder_exists (&log_folder) { 
-                fs::create_dir_all(&log_folder)?;
-            }
-        }
-
-        let mut output_folder = file_pars.output_folder_path;
-        if output_folder == empty_pb && data_folder_good {
-            output_folder = data_folder.clone();
-        }
-        else {
-            if !folder_exists (&output_folder) { 
-                fs::create_dir_all(&output_folder)?;
-            }
-        }
-
-        // If source file name given in CL args the CL version takes precedence.
-    
-        let mut source_file_name= cli_pars.source_file;
-        if source_file_name == empty_pb {
-            source_file_name =  file_pars.src_file_name;
-            if source_file_name == empty_pb && cli_pars.flags.import_data {   // Required data is missing - Raise error and exit program.
-                return Result::Err(AppError::MissingProgramParameter("src_file_name".to_string()));
-            }
-        }
-
-        // For execution flags read from the environment variables
-       
-        Ok(InitParams {
-            data_folder,
-            log_folder,
-            output_folder,
-            source_file_name,
-            flags: cli_pars.flags,
-        })
-
     }
+
+    let mut output_folder = file_pars.output_folder_path;
+    if output_folder == empty_pb && data_folder_good {
+        output_folder = data_folder.clone();
+    }
+    else {
+        if !folder_exists (&output_folder) { 
+            fs::create_dir_all(&output_folder)?;
+        }
+    }
+
+    // If source file name given in CL args the CL version takes precedence.
+
+    let mut source_file_name = cli_pars.source_file;
+    if source_file_name == "".to_string(){
+        source_file_name =  file_pars.src_file_name;
+        if source_file_name == "".to_string() && cli_pars.flags.import_data {   // Required data is missing - Raise error and exit program.
+            return Result::Err(AppError::MissingProgramParameter("src_file_name".to_string()));
+        }
+    }
+
+    // For execution flags read from the environment variables
+    
+    Ok(InitParams {
+        data_folder,
+        log_folder,
+        output_folder,
+        source_file_name,
+        flags: cli_pars.flags,
+    })
+
 }
 
 
@@ -162,6 +145,22 @@ pub async fn get_db_pool() -> Result<PgPool, AppError> {
         .map_err(|e| AppError::DBPoolError(format!("Problem with connecting to database {} and obtaining Pool", db_name), e))
 }
 
+pub fn establish_log(params: &InitParams) -> Result<(), AppError> {
+
+    if !log_set_up() {  // can be called more than once in context of integration tests
+        log_helper::setup_log(&params.log_folder)?;
+        LOG_RUNNING.set(true).unwrap(); // should always work
+        log_helper::log_startup_params(&params);
+    }
+    Ok(())
+}
+
+pub fn log_set_up() -> bool {
+    match LOG_RUNNING.get() {
+        Some(_) => true,
+        None => false,
+    }
+}
 
 
 // Tests
@@ -169,6 +168,7 @@ pub async fn get_db_pool() -> Result<PgPool, AppError> {
 
 mod tests {
     use super::*;
+    use std::ffi::OsString;
 
     #[test]
     fn check_config_vars_read_correctly() {
@@ -191,8 +191,9 @@ db_port="5433"
 
         let args : Vec<&str> = vec!["dummy target"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
 
-        let res = get_params(test_args, config_string).unwrap();
+        let res = get_params(cli_pars, &config_string).unwrap();
 
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
@@ -201,7 +202,7 @@ db_port="5433"
         assert_eq!(res.data_folder, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.log_folder, PathBuf::from("E:\\MDR source data\\Geonames\\logs"));
         assert_eq!(res.output_folder, PathBuf::from("E:\\MDR source data\\Geonames\\outputs"));
-        assert_eq!(res.source_file_name, PathBuf::from("alternateNamesV2.txt"));
+        assert_eq!(res.source_file_name, "alternateNamesV2.txt");
 
     }
 
@@ -226,8 +227,9 @@ db_port="5433"
 
         let args : Vec<&str> = vec!["dummy target",  "-s", "schema2 data.txt"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
-        
-        let res = get_params(test_args, config_string).unwrap();
+        let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
+
+        let res = get_params(cli_pars, &config_string).unwrap();
 
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
@@ -236,7 +238,7 @@ db_port="5433"
         assert_eq!(res.data_folder, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.log_folder, PathBuf::from("E:\\MDR source data\\Geonames\\logs"));
         assert_eq!(res.output_folder, PathBuf::from("E:\\MDR source data\\Geonames\\outputs"));
-        assert_eq!(res.source_file_name, PathBuf::from("schema2 data.txt"));
+        assert_eq!(res.source_file_name, "schema2 data.txt");
     }
 
 
@@ -261,8 +263,9 @@ db_port="5433"
         
         let args : Vec<&str> = vec!["dummy target", "-i"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
-        
-        let res = get_params(test_args, config_string).unwrap();
+        let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
+
+        let res = get_params(cli_pars, &config_string).unwrap();
 
         assert_eq!(res.flags.import_data, false);
         assert_eq!(res.flags.export_data, false);
@@ -271,7 +274,7 @@ db_port="5433"
         assert_eq!(res.data_folder, PathBuf::new());
         assert_eq!(res.log_folder, PathBuf::new());
         assert_eq!(res.output_folder, PathBuf::new());
-        assert_eq!(res.source_file_name, PathBuf::new());
+        assert_eq!(res.source_file_name, "".to_string());
     }
    
     
@@ -297,8 +300,9 @@ db_port="5433"
         
         let args : Vec<&str> = vec!["dummy target", "-r"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
 
-        let _res = get_params(test_args, config_string).unwrap();
+        let _res = get_params(cli_pars, &config_string).unwrap();
     }
 }
 
