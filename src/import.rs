@@ -5,6 +5,7 @@ use std::io::BufReader;
 use std::fs::File;
 use csv::ReaderBuilder;
 use crate::data_vectors::AltRecVecs;
+use log::info;
 
 
 #[derive(serde::Deserialize)]
@@ -30,7 +31,7 @@ pub struct AltRec {
     pub historic: String,
 }
 
-#[allow(unused_assignments)]
+//#[allow(unused_assignments)]
 pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool: &Pool<Postgres>, include_latin_only: bool) -> Result<(), AppError> {
 
     let source_file_path: PathBuf = [data_folder, &PathBuf::from(source_file_name)].iter().collect();
@@ -42,6 +43,8 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
         .from_reader(buf_reader);
     
    let mut i = 0;
+   let mut gid_num = 0;
+   let mut old_gid = 0;
 
    let none = "none".to_string();
    let link = "link".to_string();
@@ -63,8 +66,6 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
         let source: AltName = result?;
         let mut create_rec = true;
         let lang_code = source.iso_language.unwrap_or(none.clone());
-        let mut gid_num  = 0;
-        let mut old_gid = 0;
         
         if lang_code != none {
             if lang_code == link || lang_code == wkdt
@@ -76,8 +77,8 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
             }
         }
 
+        // Add in optional filter here to exclude non Latin names.
 
-        // Add in optional filter here to exclude non Latin names
         if include_latin_only {
             if source.alternate_name > end_of_latin {
                 create_rec = false;
@@ -89,8 +90,7 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
 
             let geo_id = source.geoname_id;
             if geo_id != old_gid {
-                
-                gid_num += 1;
+                gid_num = gid_num + 1;
 
                 if gid_num == 250 {  // every 250 geoname ids
 
@@ -100,7 +100,7 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
                     dv.store_data(&pool).await?;
                     dv = AltRecVecs::new(vector_size);
                     gid_num = 0;
-                    
+
                     // Call the routines to aggregate lang codes and recreate the collecting table.
 
                     transfer_data(&pool).await?;
@@ -131,10 +131,15 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
             // transfer data to vectors
             dv.add_data(&alt_name);
         }
- 
+        
         i +=1;
+
+        //if i > 3000 {
+        //    break;
+        // }
+
         if i % 250000 == 0 {
-            println!("Processed {} alternate name records", i);
+            info!("Processed {} alternate name records", i);
         }
     }
 
