@@ -143,19 +143,21 @@ mod tests {
         let res = fetch_valid_arguments(test_args).unwrap();
         assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, true);
+        assert_eq!(res.flags.include_nonlatin, false);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.test_run, false);
     }
 
     #[test]
-    fn check_cli_with_i_flag() {
+    fn check_cli_with_n_flag() {
         let target = "dummy target";
-        let args : Vec<&str> = vec![target, "-i"];
+        let args : Vec<&str> = vec![target, "-n"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
         let res = fetch_valid_arguments(test_args).unwrap();
         assert_eq!(res.source_file, "".to_string());
-        assert_eq!(res.flags.import_data, false);
+        assert_eq!(res.flags.import_data, true);
+        assert_eq!(res.flags.include_nonlatin, true);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.test_run, false);
     }
@@ -169,6 +171,7 @@ mod tests {
         let res = fetch_valid_arguments(test_args).unwrap();
         assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, true);
+        assert_eq!(res.flags.include_nonlatin, false);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.test_run, true);
     }
@@ -183,6 +186,7 @@ mod tests {
         let res = fetch_valid_arguments(test_args).unwrap();
         assert_eq!(res.source_file, "schema2 data.json");
         assert_eq!(res.flags.import_data, true);
+        assert_eq!(res.flags.include_nonlatin, false);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.test_run, false);
     }
@@ -196,6 +200,7 @@ mod tests {
         let res = fetch_valid_arguments(test_args).unwrap();
         assert_eq!(res.source_file, "schema2.1 data.json");
         assert_eq!(res.flags.import_data, true);
+        assert_eq!(res.flags.include_nonlatin, false);
         assert_eq!(res.flags.export_data, false);
         assert_eq!(res.flags.test_run, true);
     }

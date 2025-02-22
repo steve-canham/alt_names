@@ -83,7 +83,6 @@ pub fn report_error(e: AppError) -> () {
     }
 }
 
-
 fn print_error(description: String, details: String, header: &str) {
     let star_num = 100;
     let hdr_line = get_header_line (star_num, &header);
