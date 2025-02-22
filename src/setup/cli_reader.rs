@@ -1,9 +1,5 @@
 /***************************************************************************
- * Module uses clap crate to read command line arguments. These include 
- * possible A, S, T and C flags, and possible strings for the data folder and 
- * source file name. If no flags 'S' (= import data) is returned by default.
- * Folder and file names return an empty string ("") rather than null if not 
- * present. 
+ *
  ***************************************************************************/
 
 use clap::{command, Arg, ArgMatches};
@@ -18,8 +14,8 @@ pub struct CliPars {
 #[derive(Debug, Clone, Copy)]
 pub struct Flags {
     pub import_data: bool,
+    pub include_nonlatin: bool,
     pub export_data: bool,
-    pub initialise: bool,
     pub test_run: bool,
 }
 
@@ -30,50 +26,31 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
   
     // Flag values are false if not present, true if present.
 
-    let i_flag = parse_result.get_flag("i_flag");
     let mut r_flag = parse_result.get_flag("r_flag");
+    let n_flag = parse_result.get_flag("n_flag");
     let mut x_flag = parse_result.get_flag("x_flag");
     let z_flag = parse_result.get_flag("z_flag");
-
-    // If c, m, or both flags set (may be by using 'i' (initialise) flag)
-    // Only do the c and / or m actions
-  
-    if i_flag {
-
-        let flags = Flags {
-            import_data: false,
-            export_data: false,
-            initialise: i_flag,
-            test_run: false,
-        };
-
-        Ok(CliPars {
-            source_file: "".to_string(),
-            flags: flags,
-        })
+     
+    if r_flag && x_flag {  
+        x_flag = false;  // import is the default
     }
-    
-    else {
-        if r_flag && x_flag {  
-           x_flag = false;  // import is the default
-        }
 
-        if !r_flag && !x_flag {
-            r_flag = true;  // import is the default
-        }
-    
-        let flags = Flags {
-            import_data: r_flag,
-            export_data: x_flag,
-            initialise: false,
-            test_run: z_flag,
-        };
-
-        Ok(CliPars {
-            source_file: source_file.clone(),
-            flags: flags,
-        })
+    if !r_flag && !x_flag {
+        r_flag = true;  // import is the default
     }
+
+    let flags = Flags {
+        import_data: r_flag,
+        include_nonlatin: n_flag,
+        export_data: x_flag,
+        test_run: z_flag,
+    };
+
+    Ok(CliPars {
+        source_file: source_file.clone(),
+        flags: flags,
+    })
+
 }
 
 
@@ -97,22 +74,22 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
            .help("A flag signifying import from ror file to ror schema tables only")
            .action(clap::ArgAction::SetTrue)
         )
+        .arg(
+            Arg::new("n_flag")
+           .short('n')
+           .long("non_latin")
+           .required(false)
+           .help("A flag signifying that non Latin names shopuld be included (are excludede by dfefault)")
+           .action(clap::ArgAction::SetTrue)
+        )
        .arg(
              Arg::new("x_flag")
             .short('x')
             .long("filesout")
             .required(false)
-            .help("A flag signifying output a summary of the current or specified version into csv files")
+            .help("A flag signifying output a summary of the current geonames data into a csv file")
             .action(clap::ArgAction::SetTrue)
         )
-       .arg(
-            Arg::new("i_flag")
-           .short('i')
-           .long("install")
-           .required(false)
-           .help("A flag signifying initial run, creates summary and context tables only")
-           .action(clap::ArgAction::SetTrue)
-       )
        .arg(
             Arg::new("z_flag")
             .short('z')
@@ -141,7 +118,6 @@ mod tests {
         assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
-        assert_eq!(res.flags.initialise, false);
         assert_eq!(res.flags.test_run, false);
     }
   
@@ -155,7 +131,6 @@ mod tests {
         assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, false);
         assert_eq!(res.flags.export_data, true);
-        assert_eq!(res.flags.initialise, false);
         assert_eq!(res.flags.test_run, false);
     }
 
@@ -169,7 +144,6 @@ mod tests {
         assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
-        assert_eq!(res.flags.initialise, false);
         assert_eq!(res.flags.test_run, false);
     }
 
@@ -183,7 +157,6 @@ mod tests {
         assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, false);
         assert_eq!(res.flags.export_data, false);
-        assert_eq!(res.flags.initialise, true);
         assert_eq!(res.flags.test_run, false);
     }
 
@@ -197,7 +170,6 @@ mod tests {
         assert_eq!(res.source_file, "".to_string());
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
-        assert_eq!(res.flags.initialise, false);
         assert_eq!(res.flags.test_run, true);
     }
 
@@ -212,7 +184,6 @@ mod tests {
         assert_eq!(res.source_file, "schema2 data.json");
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
-        assert_eq!(res.flags.initialise, false);
         assert_eq!(res.flags.test_run, false);
     }
 
@@ -226,7 +197,6 @@ mod tests {
         assert_eq!(res.source_file, "schema2.1 data.json");
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
-        assert_eq!(res.flags.initialise, false);
         assert_eq!(res.flags.test_run, true);
     }
 

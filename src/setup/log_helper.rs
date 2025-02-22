@@ -75,8 +75,8 @@ pub fn log_startup_params (ip : &InitParams) {
     info!("log_folder: {}", ip.log_folder.display());
     info!("output_folder: {}", ip.output_folder.display());
     info!("source_file_name: {}", ip.source_file_name);
-    info!("create look up tables: {}", ip.flags.initialise);
     info!("import_data: {}", ip.flags.import_data);
+    info!("include non Latin: {}", ip.flags.include_nonlatin);
     info!("export_data: {}", ip.flags.export_data);
     info!("");
     info!("************************************");

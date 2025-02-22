@@ -26,36 +26,26 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     setup::establish_log(&params)?;
     let pool = setup::get_db_pool().await?;
     let test_run = flags.test_run;
+        
+    if flags.import_data   // import ror from json file and store in ror schema tables
+    {
+        initialise::create_geo_tables(&pool).await?;
 
-    // Processing of the remaining stages depends on the 
-    // presence of the relevant CLI flag(s).
-    
-    if flags.initialise {
-           
-           // do any initialisation required - e.g. create tables
-           initialise::create_geo_tables(&pool).await?;
+        // The fourth parameter, true, makes the process include Latin names only
+        // By default it is true, but needs to be switchable to false using a command flag
+        let latin_only = !flags.include_nonlatin;
+        import::import_data(&params.data_folder, &params.source_file_name, &pool, latin_only).await?;
 
-    }
-    else  {
-        if flags.import_data   // import ror from json file and store in ror schema tables
-        {
-            initialise::create_geo_tables(&pool).await?;
-
-            // The fourth parameter, true, makes the process include Latin names only
-            // By default it is true, but needs to be switchable to false using a command flag
-
-            import::import_data(&params.data_folder, &params.source_file_name, &pool, true).await?;
-
-            if !test_run {
-                //import::summarise_import(&pool).await?;
-            }
-        }
-
-        if flags.export_data  // write out summary data from data in smm tables
-        { 
-            export::export_data(&params.output_folder, &params.source_file_name, &pool).await?;
+        if !test_run {
+            //import::summarise_import(&pool).await?;
         }
     }
+
+    if flags.export_data  // write out summary data from data in smm tables
+    { 
+        export::export_data(&params.output_folder, &params.source_file_name, &pool).await?;
+    }
+
 
      Ok(())  
 }

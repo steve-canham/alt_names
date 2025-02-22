@@ -31,13 +31,13 @@ pub struct AltRec {
     pub historic: String,
 }
 
-//#[allow(unused_assignments)]
-pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool: &Pool<Postgres>, include_latin_only: bool) -> Result<(), AppError> {
+
+pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool: &Pool<Postgres>, latin_only: bool) -> Result<(), AppError> {
 
     let source_file_path: PathBuf = [data_folder, &PathBuf::from(source_file_name)].iter().collect();
     let file = File::open(source_file_path)?;
     let buf_reader = BufReader::new(file);
-    let mut rdr = ReaderBuilder::new()
+    let mut csv_rdr = ReaderBuilder::new()
         .has_headers(false)
         .delimiter(9)
         .from_reader(buf_reader);
@@ -59,9 +59,9 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
 
    let vector_size = 2500;
    let mut dv: AltRecVecs = AltRecVecs::new(vector_size);
-   recreate_table(&pool).await?;
+   create_collecting_table(&pool).await?;
 
-   for result in rdr.deserialize() {
+   for result in csv_rdr.deserialize() {
 
         let source: AltName = result?;
         let mut create_rec = true;
@@ -77,14 +77,13 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
             }
         }
 
-        // Add in optional filter here to exclude non Latin names.
+        // Optional filter here to exclude non Latin names.
 
-        if include_latin_only {
+        if latin_only {
             if source.alternate_name > end_of_latin {
                 create_rec = false;
             }
         }
-
 
         if create_rec {
 
@@ -92,19 +91,17 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
             if geo_id != old_gid {
                 gid_num = gid_num + 1;
 
-                if gid_num == 250 {  // every 250 geoname ids
+                if gid_num == 2500 {  // every 2500 geoname ids
 
                     // Call the routine to transfer records to the database.
                     // Recreate the vectors, reset gid_num.
+                    // Then aggregate lang codes and recreate the collecting table.
 
                     dv.store_data(&pool).await?;
                     dv = AltRecVecs::new(vector_size);
                     gid_num = 0;
-
-                    // Call the routines to aggregate lang codes and recreate the collecting table.
-
                     transfer_data(&pool).await?;
-                    recreate_table(&pool).await?;
+                    create_collecting_table(&pool).await?;
                 }
                 
                 old_gid = geo_id;
@@ -150,7 +147,7 @@ pub async fn import_data(data_folder: &PathBuf, source_file_name: &String, pool:
 }
 
 
-async fn recreate_table(pool: &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
+async fn create_collecting_table(pool: &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
     
     let sql = r#"drop table if exists geo.alt_src_names;
     create table geo.alt_src_names

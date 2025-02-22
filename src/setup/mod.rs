@@ -145,6 +145,7 @@ pub async fn get_db_pool() -> Result<PgPool, AppError> {
         .map_err(|e| AppError::DBPoolError(format!("Problem with connecting to database {} and obtaining Pool", db_name), e))
 }
 
+
 pub fn establish_log(params: &InitParams) -> Result<(), AppError> {
 
     if !log_set_up() {  // can be called more than once in context of integration tests
@@ -197,7 +198,6 @@ db_port="5433"
 
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
-        assert_eq!(res.flags.initialise, false);
         assert_eq!(res.flags.test_run, false);
         assert_eq!(res.data_folder, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.log_folder, PathBuf::from("E:\\MDR source data\\Geonames\\logs"));
@@ -233,50 +233,12 @@ db_port="5433"
 
         assert_eq!(res.flags.import_data, true);
         assert_eq!(res.flags.export_data, false);
-        assert_eq!(res.flags.initialise, false);
         assert_eq!(res.flags.test_run, false);
         assert_eq!(res.data_folder, PathBuf::from("E:\\MDR source data\\Geonames\\data"));
         assert_eq!(res.log_folder, PathBuf::from("E:\\MDR source data\\Geonames\\logs"));
         assert_eq!(res.output_folder, PathBuf::from("E:\\MDR source data\\Geonames\\outputs"));
         assert_eq!(res.source_file_name, "schema2 data.txt");
     }
-
-
-    #[test]
-    fn check_cli_vars_with_i_flag() {
-
-        let config = r#"
-[files]
-data_folder_path="E:\\MDR source data\\Geonames\\data"
-log_folder_path="E:\\MDR source data\\Geonames\\logs"
-output_folder_path="E:\\MDR source data\\Geonames\\outputs"
-src_file_name="alternateNamesV2.txt"
-
-[database]
-db_host="localhost"
-db_user="postgres"
-db_password="WinterIsComing!"
-db_port="5433"
-"#;
-        let config_string = config.to_string();
-        config_reader::populate_config_vars(&config_string).unwrap();
-        
-        let args : Vec<&str> = vec!["dummy target", "-i"];
-        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
-        let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
-
-        let res = get_params(cli_pars, &config_string).unwrap();
-
-        assert_eq!(res.flags.import_data, false);
-        assert_eq!(res.flags.export_data, false);
-        assert_eq!(res.flags.initialise, true);
-        assert_eq!(res.flags.test_run, false);
-        assert_eq!(res.data_folder, PathBuf::new());
-        assert_eq!(res.log_folder, PathBuf::new());
-        assert_eq!(res.output_folder, PathBuf::new());
-        assert_eq!(res.source_file_name, "".to_string());
-    }
-   
     
     #[test]
     #[should_panic]

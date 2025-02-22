@@ -118,10 +118,6 @@ fn output_error (err_output: String) {
     if log_set_up(){
         error!("{}", err_output);
     }
-
-    // Not intended to run unattended (at the moment)
-    // system independent error logging therefore not yet required.
-
 }
 
 
