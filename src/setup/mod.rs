@@ -183,8 +183,8 @@ src_file_name="alternateNamesV2.txt"
 
 [database]
 db_host="localhost"
-db_user="postgres"
-db_password="WinterIsComing!"
+db_user="user_name"
+db_password="password"
 db_port="5433"
 "#;
         let config_string = config.to_string();
@@ -218,8 +218,8 @@ src_file_name="alternateNamesV2.txt"
 
 [database]
 db_host="localhost"
-db_user="postgres"
-db_password="WinterIsComing!"
+db_user="user_name"
+db_password="password"
 db_port="5433"
 "#;
         let config_string = config.to_string();
@@ -253,8 +253,8 @@ src_file_name="alternateNamesV2.txt"
 
 [database]
 db_host="localhost"
-db_user="postgres"
-db_password="WinterIsComing!"
+db_user="user_name"
+db_password="password"
 db_port="5433"
 "#;
         let config_string = config.to_string();
